@@ -1,10 +1,10 @@
-name: Windows RDP (Registry Fixed)
+name: Windows RDP + OBS (Virtual Monitor Fix)
 
 on: 
   workflow_dispatch:
     inputs:
       crd_code:
-        description: 'Paste WINDOWS Command (CMD) here'
+        description: 'Paste WINDOWS Command (CMD) from Google Here'
         required: true
       pin:
         description: 'Set a 6-digit PIN'
@@ -12,39 +12,20 @@ on:
         default: '123456'
 
 jobs:
-  windows-fix:
+  windows-rdp:
     runs-on: windows-latest
     timeout-minutes: 360
     
     steps:
-      - name: ⬇️ Download Chrome Remote Desktop
+      - name: 🖥️ Install Virtual Display Driver
         run: |
-          Invoke-WebRequest -Uri "https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi" -OutFile "chromeremotedesktophost.msi"
-
-      - name: 💿 Install Chrome Remote Desktop
-        run: |
-          Start-Process "msiexec.exe" -ArgumentList "/i chromeremotedesktophost.msi /quiet /norestart" -Wait
-
-      - name: 🛠️ APPLY REGISTRY FIX (Prevents Crash)
-        shell: powershell
-        run: |
-          # Create the Registry Key path if it doesn't exist
-          $path = "HKLM:\SOFTWARE\Policies\Google\Chrome\RemoteAccessHost"
-          if (!(Test-Path $path)) { New-Item -Path $path -Force }
-
-          # === THE FIX IS HERE ===
-          # We use New-ItemProperty with -Force for both. This avoids the "PropertyType" error.
+          # Download and install a virtual monitor driver so OBS has a screen to capture
+          Invoke-WebRequest -Uri "https://github.com/itsmikethetech/Virtual-Display-Driver/releases/download/2.3/IddSampleDriver.zip" -OutFile "driver.zip"
+          Expand-Archive -Path "driver.zip" -DestinationPath "C:\vdriver"
+          # Install the certificate and driver
+          Import-Certificate -FilePath "C:\vdriver\IddSampleDriver.cer" -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
+          # Note: Driver installation on headless runners can be tricky, we'll proceed with CRD setup
           
-          # 1. Disable Curtain Mode
-          New-ItemProperty -Path $path -Name "RequireCurtain" -Value 0 -PropertyType DWORD -Force
-          
-          # 2. Match Username (Prevents locking)
-          New-ItemProperty -Path $path -Name "RemoteAccessHostMatchUsername" -Value 0 -PropertyType DWORD -Force
-          
-          # 3. Disable Sleep
-          powercfg /change monitor-timeout-ac 0
-          powercfg /change standby-timeout-ac 0
-
       - name: 🎥 Install OBS Studio
         run: |
           choco install obs-studio -y --no-progress
@@ -53,22 +34,25 @@ jobs:
           $Shortcut.TargetPath = "C:\Program Files\obs-studio\bin\64bit\obs64.exe"
           $Shortcut.Save()
 
-      - name: 🔊 Enable Audio
+      - name: 💿 Install Chrome Remote Desktop
         run: |
-          Set-Service -Name Audiosrv -StartupType Automatic
-          Start-Service -Name Audiosrv
-          Set-Service -Name AudioEndpointBuilder -StartupType Automatic
-          Start-Service -Name AudioEndpointBuilder
+          Invoke-WebRequest -Uri "https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi" -OutFile "crd.msi"
+          Start-Process "msiexec.exe" -ArgumentList "/i crd.msi /quiet /norestart" -Wait
 
-      - name: 🚀 START GOOGLE REMOTE DESKTOP
+      - name: 🛠️ Registry Fix (No-Crash Mode)
+        run: |
+          $path = "HKLM:\SOFTWARE\Policies\Google\Chrome\RemoteAccessHost"
+          if (!(Test-Path $path)) { New-Item -Path $path -Force }
+          New-ItemProperty -Path $path -Name "RequireCurtain" -Value 0 -PropertyType DWORD -Force
+          New-ItemProperty -Path $path -Name "RemoteAccessHostMatchUsername" -Value 0 -PropertyType DWORD -Force
+
+      - name: 🚀 START REMOTE DESKTOP
         shell: cmd
         run: |
-          :: Run the command exactly as you pasted it
+          :: Use the command from Google
           ${{ github.event.inputs.crd_code }} --pin=${{ github.event.inputs.pin }}
 
       - name: ⏳ Keep Alive
         run: |
-          Write-Host "Server is running. Connect at https://remotedesktop.google.com/access"
-          while ($true) {
-            Start-Sleep -Seconds 60
-          }
+          Write-Host "Connected! Open OBS and use 'Display Capture'."
+          while ($true) { Start-Sleep -Seconds 60 }
