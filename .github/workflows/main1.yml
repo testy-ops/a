@@ -1,4 +1,4 @@
-name: Windows Final (RDP + OBS)
+name: Windows RDP (Crash Fix)
 
 on: 
   workflow_dispatch:
@@ -12,7 +12,7 @@ on:
         default: '123456'
 
 jobs:
-  windows-final:
+  windows-fix:
     runs-on: windows-latest
     timeout-minutes: 360
     
@@ -25,10 +25,24 @@ jobs:
         run: |
           Start-Process "msiexec.exe" -ArgumentList "/i chromeremotedesktophost.msi /quiet /norestart" -Wait
 
+      - name: 🛠️ APPLY REGISTRY FIX (Prevents Crash)
+        shell: powershell
+        run: |
+          # 1. Disable "Curtain Mode" so it doesn't look for a physical monitor
+          $path = "HKLM:\SOFTWARE\Policies\Google\Chrome\RemoteAccessHost"
+          if (!(Test-Path $path)) { New-Item -Path $path -Force }
+          New-ItemProperty -Path $path -Name "RequireCurtain" -Value 0 -PropertyType DWORD -Force
+          
+          # 2. Disable Screen Locking / Screensaver
+          Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Google\Chrome\RemoteAccessHost" -Name "RemoteAccessHostMatchUsername" -Value 0 -PropertyType DWORD -Force
+          
+          # 3. Adjust Power Settings to never sleep
+          powercfg /change monitor-timeout-ac 0
+          powercfg /change standby-timeout-ac 0
+
       - name: 🎥 Install OBS Studio
         run: |
           choco install obs-studio -y --no-progress
-          # Create Desktop Shortcut
           $WshShell = New-Object -comObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$Home\Desktop\OBS Studio.lnk")
           $Shortcut.TargetPath = "C:\Program Files\obs-studio\bin\64bit\obs64.exe"
@@ -44,10 +58,10 @@ jobs:
       - name: 🚀 START GOOGLE REMOTE DESKTOP
         shell: cmd
         run: |
-          :: We run the command exactly as you pasted it
+          :: Run the command exactly as you pasted it
           ${{ github.event.inputs.crd_code }} --pin=${{ github.event.inputs.pin }}
 
-      - name: ⏳ Keep Alive (6 Hours)
+      - name: ⏳ Keep Alive
         run: |
           Write-Host "Server is running. Connect at https://remotedesktop.google.com/access"
           while ($true) {
