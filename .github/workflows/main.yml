@@ -1,4 +1,4 @@
-name: Chrome Remote Desktop (Fixed)
+name: Chrome Remote Desktop (Fixed + OBS)
 
 on: 
   workflow_dispatch:
@@ -35,6 +35,14 @@ jobs:
           echo "Fixing dependencies..."
           # This command finishes the install and downloads missing parts
           sudo apt-get install --fix-broken -y
+
+      - name: Install OBS Studio
+        run: |
+          echo "Adding OBS PPA..."
+          sudo add-apt-repository ppa:obsproject/obs-studio -y
+          sudo apt-get update
+          echo "Installing OBS and FFmpeg..."
+          sudo apt-get install -y ffmpeg obs-studio
 
       - name: Create Group (Error Prevention)
         run: |
