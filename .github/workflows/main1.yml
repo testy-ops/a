@@ -1,4 +1,4 @@
-name: Windows RDP + OBS (Vertical Fix)
+name: Windows Ultimate (OBS + Sound + High-Res)
 
 on: 
   workflow_dispatch:
@@ -12,40 +12,51 @@ on:
         default: '123456'
 
 jobs:
-  windows-rdp:
+  build:
     runs-on: windows-latest
     timeout-minutes: 360
     
     steps:
       - name: 🎥 Install OBS & Python
         run: |
-          # Install OBS and Python via Chocolatey
           choco install obs-studio python -y --no-progress
-          # Install Pygame for your game
           python -m pip install pygame
-          
+
+      - name: 🔊 Install Virtual Audio Cable (For Stream Sound)
+        run: |
+          Invoke-WebRequest -Uri "https://download.vb-audio.com/Download_Html/VBCABLE_Setup_x64.exe" -OutFile "vbaudio.exe"
+          Start-Process "vbaudio.exe" -ArgumentList "/i /silent" -Wait
+
+      - name: 🖥️ Install Virtual Display Driver (For 720x1280 Support)
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/itsmikethetech/Virtual-Display-Driver/releases/download/2.3/IddSampleDriver.zip" -OutFile "driver.zip"
+          Expand-Archive -Path "driver.zip" -DestinationPath "C:\vdriver"
+          Import-Certificate -FilePath "C:\vdriver\IddSampleDriver.cer" -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
+          pnputil /add-driver "C:\vdriver\IddSampleDriver.inf" /install
+
       - name: 💿 Install Chrome Remote Desktop
         run: |
           Invoke-WebRequest -Uri "https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi" -OutFile "crd.msi"
           Start-Process "msiexec.exe" -ArgumentList "/i crd.msi /quiet /norestart" -Wait
 
-      - name: 🛠️ Registry Fix (Anti-Crash)
+      - name: 🛠️ Registry Anti-Crash & Auto-Logon
         run: |
           $path = "HKLM:\SOFTWARE\Policies\Google\Chrome\RemoteAccessHost"
           if (!(Test-Path $path)) { New-Item -Path $path -Force }
           New-ItemProperty -Path $path -Name "RequireCurtain" -Value 0 -PropertyType DWORD -Force
           New-ItemProperty -Path $path -Name "RemoteAccessHostMatchUsername" -Value 0 -PropertyType DWORD -Force
+          # Disable Screen Lock
+          reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v DisableLockWorkstation /t REG_DWORD /d 1 /f
 
       - name: 🚀 START REMOTE DESKTOP
         shell: cmd
         run: |
-          :: Use the Windows (CMD) command from Google
           ${{ github.event.inputs.crd_code }} --pin=${{ github.event.inputs.pin }}
 
       - name: ⏳ Keep Alive
         run: |
-          Write-Host "Connected! Once logged in:"
-          Write-Host "1. Open OBS Studio"
-          Write-Host "2. Settings > Video > Base/Output Resolution: 720x1280"
-          Write-Host "3. Use 'Display Capture' as your source."
+          Write-Host "RDP is Live! Follow these 3 steps inside the RDP:"
+          Write-Host "1. Right-click Desktop > Display Settings > Set Resolution to 1920x1440."
+          Write-Host "2. Sound Settings > Set 'CABLE Input' as Default Output."
+          Write-Host "3. OBS Settings > Video > Set Canvas to 720x1280."
           while ($true) { Start-Sleep -Seconds 60 }
