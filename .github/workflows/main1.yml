@@ -1,10 +1,10 @@
-name: Windows Server
+name: Windows Safe Mode (RDP + OBS)
 
 on: 
   workflow_dispatch:
     inputs:
       crd_code:
-        description: 'Paste the WINDOWS Command (CMD) from Google Here'
+        description: 'Paste WINDOWS Command (starts with "C:\Program Files...")'
         required: true
       pin:
         description: 'Set a 6-digit PIN'
@@ -12,70 +12,68 @@ on:
         default: '123456'
 
 jobs:
-  windows-optimized:
+  windows-safe:
     runs-on: windows-latest
     timeout-minutes: 360
     
     steps:
-      - name: 🚀 Remove Bloatware & Telemetry (Free RAM)
+      - name: 🛡️ Validate Input Code (Prevent Crash)
+        shell: powershell
         run: |
-          Write-Host "Removing unwanted apps..."
-          # Remove Xbox, Cortana, Maps, Zune, Solitaire, etc.
-          Get-AppxPackage -AllUsers | Where-Object { $_.Name -match "Xbox|Cortana|Maps|Zune|Solitaire|Bing|GetHelp|Feedback|YourPhone" } | Remove-AppxPackage -ErrorAction SilentlyContinue
-          
-          Write-Host "Disabling Telemetry Services..."
-          # Stop DiagTrack (Telemetry) to save CPU
-          Stop-Service "DiagTrack" -ErrorAction SilentlyContinue
-          Set-Service "DiagTrack" -StartupType Disabled -ErrorAction SilentlyContinue
-          
-          Write-Host "Cleaning up temporary files..."
-          Remove-Item "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
+          $code = "${{ github.event.inputs.crd_code }}"
+          if ($code -match "DISPLAY=") {
+            Write-Error "❌ WRONG CODE DETECTED! You pasted the Linux code. Please use the Windows (CMD) code from Google."
+            exit 1
+          }
+          if (-not ($code -match "remoting_start_host.exe")) {
+            Write-Warning "⚠️ Code looks suspicious. Make sure you copied the Windows (CMD) command."
+          }
+          Write-Host "✅ Code looks valid. Proceeding..."
+
+      - name: ⬇️ Download Chrome Remote Desktop
+        run: |
+          Invoke-WebRequest -Uri "https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi" -OutFile "chromeremotedesktophost.msi"
+
+      - name: 💿 Install Chrome Remote Desktop
+        run: |
+          Start-Process "msiexec.exe" -ArgumentList "/i chromeremotedesktophost.msi /quiet /norestart" -Wait
 
       - name: 🎥 Install OBS Studio
         run: |
-          Write-Host "Installing OBS Studio via Chocolatey..."
           choco install obs-studio -y --no-progress
-          
-          # Create a desktop shortcut for easier access (optional)
+          # Create Desktop Shortcut
           $WshShell = New-Object -comObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$Home\Desktop\OBS Studio.lnk")
           $Shortcut.TargetPath = "C:\Program Files\obs-studio\bin\64bit\obs64.exe"
-          $Shortcut.WorkingDirectory = "C:\Program Files\obs-studio\bin\64bit"
           $Shortcut.Save()
 
-      - name: Download Chrome Remote Desktop
-        run: |
-          Write-Host "Downloading MSI..."
-          Invoke-WebRequest -Uri "https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi" -OutFile "chromeremotedesktophost.msi"
-
-      - name: Install Chrome Remote Desktop
-        run: |
-          Write-Host "Installing CRD..."
-          Start-Process "msiexec.exe" -ArgumentList "/i chromeremotedesktophost.msi /quiet /norestart" -Wait
-
-      - name: Enable Audio Services
+      - name: 🔊 Enable Audio
         run: |
           Set-Service -Name Audiosrv -StartupType Automatic
           Start-Service -Name Audiosrv
           Set-Service -Name AudioEndpointBuilder -StartupType Automatic
           Start-Service -Name AudioEndpointBuilder
 
-      - name: START DESKTOP
+      - name: 🚀 START GOOGLE REMOTE DESKTOP
         shell: cmd
         run: |
-          :: Executing the Google Command
+          :: Run the code you pasted
           ${{ github.event.inputs.crd_code }} --pin=${{ github.event.inputs.pin }}
 
-      - name: Keep Alive
+      - name: 📡 Verify Connection
+        shell: powershell
         run: |
-          Write-Host "==================================================="
-          Write-Host "   SUCCESS! WINDOWS IS LIVE & OPTIMIZED"
-          Write-Host "==================================================="
-          Write-Host "1. Go to https://remotedesktop.google.com/access"
-          Write-Host "2. Connect to the new computer"
-          Write-Host "3. OBS is installed on the Desktop."
-          Write-Host "==================================================="
-          
+          # Check if the Google service is actually running
+          $service = Get-Service "chromoting" -ErrorAction SilentlyContinue
+          if ($service.Status -ne 'Running') {
+             Write-Error "❌ CRITICAL ERROR: The Remote Desktop Service failed to start. Your code might be expired. Generate a new code and try again."
+             exit 1
+          }
+          Write-Host "✅ SUCCESS! Server is online."
+
+      - name: ⏳ Keep Alive (6 Hours)
+        run: |
+          Write-Host "Server is running. Connect at https://remotedesktop.google.com/access"
           while ($true) {
             Start-Sleep -Seconds 60
           }
