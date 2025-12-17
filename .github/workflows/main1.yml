@@ -1,0 +1,59 @@
+name: Windows Server Desktop (CRD)
+
+on: 
+  workflow_dispatch:
+    inputs:
+      crd_code:
+        description: 'Paste the WINDOWS Command from Google Here'
+        required: true
+      pin:
+        description: 'Set a 6-digit PIN'
+        required: true
+        default: '123456'
+
+jobs:
+  windows-crd:
+    runs-on: windows-latest
+    timeout-minutes: 360
+    
+    steps:
+      - name: Download Chrome Remote Desktop
+        run: |
+          Write-Host "Downloading MSI..."
+          Invoke-WebRequest -Uri "https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi" -OutFile "chromeremotedesktophost.msi"
+
+      - name: Install Chrome Remote Desktop
+        run: |
+          Write-Host "Installing..."
+          # Run the installer silently
+          Start-Process "msiexec.exe" -ArgumentList "/i chromeremotedesktophost.msi /quiet /norestart" -Wait
+
+      - name: Enable Audio Services (Attempt)
+        run: |
+          # Windows Server disables audio by default. We try to force it on.
+          Set-Service -Name Audiosrv -StartupType Automatic
+          Start-Service -Name Audiosrv
+          Set-Service -Name AudioEndpointBuilder -StartupType Automatic
+          Start-Service -Name AudioEndpointBuilder
+
+      - name: START DESKTOP
+        shell: cmd
+        run: |
+          :: === THE FIX IS HERE ===
+          :: We run the command you pasted, and append the PIN automatically
+          ${{ github.event.inputs.crd_code }} --pin=${{ github.event.inputs.pin }}
+
+      - name: Keep Alive
+        run: |
+          Write-Host "==================================================="
+          Write-Host "   SUCCESS! WINDOWS IS LIVE"
+          Write-Host "==================================================="
+          Write-Host "1. Go to https://remotedesktop.google.com/access"
+          Write-Host "2. Click on the new computer name"
+          Write-Host "3. Enter PIN: ${{ github.event.inputs.pin }}"
+          Write-Host "==================================================="
+          
+          # Infinite loop to keep the server running
+          while ($true) {
+            Start-Sleep -Seconds 60
+          }
