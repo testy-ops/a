@@ -1,4 +1,4 @@
-name: Windows RDP (Crash Fix)
+name: Windows RDP (Registry Fixed)
 
 on: 
   workflow_dispatch:
@@ -28,15 +28,20 @@ jobs:
       - name: 🛠️ APPLY REGISTRY FIX (Prevents Crash)
         shell: powershell
         run: |
-          # 1. Disable "Curtain Mode" so it doesn't look for a physical monitor
+          # Create the Registry Key path if it doesn't exist
           $path = "HKLM:\SOFTWARE\Policies\Google\Chrome\RemoteAccessHost"
           if (!(Test-Path $path)) { New-Item -Path $path -Force }
+
+          # === THE FIX IS HERE ===
+          # We use New-ItemProperty with -Force for both. This avoids the "PropertyType" error.
+          
+          # 1. Disable Curtain Mode
           New-ItemProperty -Path $path -Name "RequireCurtain" -Value 0 -PropertyType DWORD -Force
           
-          # 2. Disable Screen Locking / Screensaver
-          Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Google\Chrome\RemoteAccessHost" -Name "RemoteAccessHostMatchUsername" -Value 0 -PropertyType DWORD -Force
+          # 2. Match Username (Prevents locking)
+          New-ItemProperty -Path $path -Name "RemoteAccessHostMatchUsername" -Value 0 -PropertyType DWORD -Force
           
-          # 3. Adjust Power Settings to never sleep
+          # 3. Disable Sleep
           powercfg /change monitor-timeout-ac 0
           powercfg /change standby-timeout-ac 0
 
