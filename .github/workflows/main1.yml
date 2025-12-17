@@ -1,10 +1,10 @@
-name: Windows Server Desktop (CRD)
+name: Windows Server
 
 on: 
   workflow_dispatch:
     inputs:
       crd_code:
-        description: 'Paste the WINDOWS Command from Google Here'
+        description: 'Paste the WINDOWS Command (CMD) from Google Here'
         required: true
       pin:
         description: 'Set a 6-digit PIN'
@@ -12,11 +12,37 @@ on:
         default: '123456'
 
 jobs:
-  windows-crd:
+  windows-optimized:
     runs-on: windows-latest
     timeout-minutes: 360
     
     steps:
+      - name: 🚀 Remove Bloatware & Telemetry (Free RAM)
+        run: |
+          Write-Host "Removing unwanted apps..."
+          # Remove Xbox, Cortana, Maps, Zune, Solitaire, etc.
+          Get-AppxPackage -AllUsers | Where-Object { $_.Name -match "Xbox|Cortana|Maps|Zune|Solitaire|Bing|GetHelp|Feedback|YourPhone" } | Remove-AppxPackage -ErrorAction SilentlyContinue
+          
+          Write-Host "Disabling Telemetry Services..."
+          # Stop DiagTrack (Telemetry) to save CPU
+          Stop-Service "DiagTrack" -ErrorAction SilentlyContinue
+          Set-Service "DiagTrack" -StartupType Disabled -ErrorAction SilentlyContinue
+          
+          Write-Host "Cleaning up temporary files..."
+          Remove-Item "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: 🎥 Install OBS Studio
+        run: |
+          Write-Host "Installing OBS Studio via Chocolatey..."
+          choco install obs-studio -y --no-progress
+          
+          # Create a desktop shortcut for easier access (optional)
+          $WshShell = New-Object -comObject WScript.Shell
+          $Shortcut = $WshShell.CreateShortcut("$Home\Desktop\OBS Studio.lnk")
+          $Shortcut.TargetPath = "C:\Program Files\obs-studio\bin\64bit\obs64.exe"
+          $Shortcut.WorkingDirectory = "C:\Program Files\obs-studio\bin\64bit"
+          $Shortcut.Save()
+
       - name: Download Chrome Remote Desktop
         run: |
           Write-Host "Downloading MSI..."
@@ -24,13 +50,11 @@ jobs:
 
       - name: Install Chrome Remote Desktop
         run: |
-          Write-Host "Installing..."
-          # Run the installer silently
+          Write-Host "Installing CRD..."
           Start-Process "msiexec.exe" -ArgumentList "/i chromeremotedesktophost.msi /quiet /norestart" -Wait
 
-      - name: Enable Audio Services (Attempt)
+      - name: Enable Audio Services
         run: |
-          # Windows Server disables audio by default. We try to force it on.
           Set-Service -Name Audiosrv -StartupType Automatic
           Start-Service -Name Audiosrv
           Set-Service -Name AudioEndpointBuilder -StartupType Automatic
@@ -39,21 +63,19 @@ jobs:
       - name: START DESKTOP
         shell: cmd
         run: |
-          :: === THE FIX IS HERE ===
-          :: We run the command you pasted, and append the PIN automatically
+          :: Executing the Google Command
           ${{ github.event.inputs.crd_code }} --pin=${{ github.event.inputs.pin }}
 
       - name: Keep Alive
         run: |
           Write-Host "==================================================="
-          Write-Host "   SUCCESS! WINDOWS IS LIVE"
+          Write-Host "   SUCCESS! WINDOWS IS LIVE & OPTIMIZED"
           Write-Host "==================================================="
           Write-Host "1. Go to https://remotedesktop.google.com/access"
-          Write-Host "2. Click on the new computer name"
-          Write-Host "3. Enter PIN: ${{ github.event.inputs.pin }}"
+          Write-Host "2. Connect to the new computer"
+          Write-Host "3. OBS is installed on the Desktop."
           Write-Host "==================================================="
           
-          # Infinite loop to keep the server running
           while ($true) {
             Start-Sleep -Seconds 60
           }
