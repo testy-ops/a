@@ -1,4 +1,4 @@
-name: Windows RDP + OBS (Virtual Monitor Fix)
+name: Windows RDP + OBS (Vertical Fix)
 
 on: 
   workflow_dispatch:
@@ -17,29 +17,19 @@ jobs:
     timeout-minutes: 360
     
     steps:
-      - name: 🖥️ Install Virtual Display Driver
+      - name: 🎥 Install OBS & Python
         run: |
-          # Download and install a virtual monitor driver so OBS has a screen to capture
-          Invoke-WebRequest -Uri "https://github.com/itsmikethetech/Virtual-Display-Driver/releases/download/2.3/IddSampleDriver.zip" -OutFile "driver.zip"
-          Expand-Archive -Path "driver.zip" -DestinationPath "C:\vdriver"
-          # Install the certificate and driver
-          Import-Certificate -FilePath "C:\vdriver\IddSampleDriver.cer" -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
-          # Note: Driver installation on headless runners can be tricky, we'll proceed with CRD setup
+          # Install OBS and Python via Chocolatey
+          choco install obs-studio python -y --no-progress
+          # Install Pygame for your game
+          python -m pip install pygame
           
-      - name: 🎥 Install OBS Studio
-        run: |
-          choco install obs-studio -y --no-progress
-          $WshShell = New-Object -comObject WScript.Shell
-          $Shortcut = $WshShell.CreateShortcut("$Home\Desktop\OBS Studio.lnk")
-          $Shortcut.TargetPath = "C:\Program Files\obs-studio\bin\64bit\obs64.exe"
-          $Shortcut.Save()
-
       - name: 💿 Install Chrome Remote Desktop
         run: |
           Invoke-WebRequest -Uri "https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi" -OutFile "crd.msi"
           Start-Process "msiexec.exe" -ArgumentList "/i crd.msi /quiet /norestart" -Wait
 
-      - name: 🛠️ Registry Fix (No-Crash Mode)
+      - name: 🛠️ Registry Fix (Anti-Crash)
         run: |
           $path = "HKLM:\SOFTWARE\Policies\Google\Chrome\RemoteAccessHost"
           if (!(Test-Path $path)) { New-Item -Path $path -Force }
@@ -49,10 +39,13 @@ jobs:
       - name: 🚀 START REMOTE DESKTOP
         shell: cmd
         run: |
-          :: Use the command from Google
+          :: Use the Windows (CMD) command from Google
           ${{ github.event.inputs.crd_code }} --pin=${{ github.event.inputs.pin }}
 
       - name: ⏳ Keep Alive
         run: |
-          Write-Host "Connected! Open OBS and use 'Display Capture'."
+          Write-Host "Connected! Once logged in:"
+          Write-Host "1. Open OBS Studio"
+          Write-Host "2. Settings > Video > Base/Output Resolution: 720x1280"
+          Write-Host "3. Use 'Display Capture' as your source."
           while ($true) { Start-Sleep -Seconds 60 }
