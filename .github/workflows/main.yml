@@ -1,82 +1,47 @@
-name: Chrome Remote Desktop (Fixed + OBS)
+name: Ubuntu 22.04 Server
 
-on: 
+on:
   workflow_dispatch:
-    inputs:
-      crd_code:
-        description: 'Paste the NEW Debian Command from Google Here'
-        required: true
-      pin:
-        description: 'Set a 6-digit PIN'
-        required: true
-        default: '123456'
 
 jobs:
-  ubuntu-crd-fixed:
-    runs-on: ubuntu-latest
-    timeout-minutes: 360
-    
+  build:
+    runs-on: ubuntu-22.04
+
     steps:
-      - name: Install Desktop (XFCE)
-        run: |
-          echo "Installing Desktop Environment..."
-          sudo apt-get update
-          sudo apt-get install -y xfce4 xfce4-goodies xbase-clients python3-psutil
+    - name: Checkout Code
+      uses: actions/checkout@v2
 
-      - name: Install Chrome Remote Desktop
-        run: |
-          echo "Downloading Chrome Remote Desktop..."
-          wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
-          
-          echo "Installing package..."
-          # We use dpkg -i but ignore errors for a moment (dependencies will fail)
-          sudo dpkg -i chrome-remote-desktop_current_amd64.deb || true
-          
-          echo "Fixing dependencies..."
-          # This command finishes the install and downloads missing parts
-          sudo apt-get install --fix-broken -y
+    - name: Install Desktop Environment (XFCE4) & Audio
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xfce4 xfce4-terminal pulseaudio alsa-utils
+        sudo apt-get install -y python3-pygame  # Install Pygame dependencies system-wide
 
-      - name: Install OBS Studio
-        run: |
-          echo "Adding OBS PPA..."
-          sudo add-apt-repository ppa:obsproject/obs-studio -y
-          sudo apt-get update
-          echo "Installing OBS and FFmpeg..."
-          sudo apt-get install -y ffmpeg obs-studio
+    - name: Install Chrome Remote Desktop
+      run: |
+        wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
+        sudo dpkg --install chrome-remote-desktop_current_amd64.deb || sudo apt-get -f install -y
 
-      - name: Create Group (Error Prevention)
-        run: |
-          # Sometimes the installer forgets to create this group, so we do it manually
-          if ! getent group chrome-remote-desktop > /dev/null; then
-            sudo groupadd chrome-remote-desktop
-          fi
-          sudo usermod -aG chrome-remote-desktop $USER
+    - name: Set up Audio Dummy Driver (Fixes Pygame Crash)
+      run: |
+        echo "export SDL_AUDIODRIVER=dummy" >> ~/.bashrc
+        echo "export SDL_AUDIODRIVER=dummy" >> ~/.profile
 
-      - name: Configure Desktop Session
-        run: |
-          # Tell Google to use XFCE
-          echo "exec /usr/bin/xfce4-session" > ~/.chrome-remote-desktop-session
-          
-          # Stop conflicting display managers
-          sudo systemctl stop lightdm || true
-          sudo systemctl stop gdm3 || true
+    - name: Setup Headless CRD (Paste your Code Below)
+      env:
+        # PASTE YOUR GOOGLE CRD CODE BELOW IN THE NEXT STEP
+        CRD_CODE: ${{ secrets.CRD_CODE }} 
+        PIN: 123456
+      run: |
+        # Create a user for the remote connection
+        sudo useradd -m -s /bin/bash user
+        sudo usermod -aG sudo user
+        echo "user:$PIN" | sudo chpasswd
+        
+        # Run the CRD setup command as the new user
+        sudo -u user bash -c "$CRD_CODE --pin=$PIN"
 
-      - name: START DESKTOP
-        env:
-          CRD_COMMAND: ${{ github.event.inputs.crd_code }}
-          CRD_PIN: ${{ github.event.inputs.pin }}
-        run: |
-          # === THE FIX IS HERE ===
-          # We use 'eval' to handle the 'DISPLAY=' part of the Google command correctly
-          eval "$CRD_COMMAND --pin=$CRD_PIN"
-
-      - name: Keep Alive
-        run: |
-          echo "==================================================="
-          echo "   SUCCESS! MACHINE IS LIVE"
-          echo "==================================================="
-          echo "1. Go to https://remotedesktop.google.com/access"
-          echo "2. Click on 'ubuntu-latest' (or the new computer name)"
-          echo "3. Enter PIN: ${{ github.event.inputs.pin }}"
-          echo "==================================================="
-          while true; do sleep 30; done
+    - name: Keep Alive (6 Hours Max)
+      run: |
+        echo "Server is running! Connect via https://remotedesktop.google.com/access"
+        sleep 21600
