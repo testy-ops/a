@@ -1,10 +1,10 @@
-name: Windows Safe Mode (RDP + OBS)
+name: Windows Final (RDP + OBS)
 
 on: 
   workflow_dispatch:
     inputs:
       crd_code:
-        description: 'Paste WINDOWS Command (starts with "C:\Program Files...")'
+        description: 'Paste WINDOWS Command (CMD) here'
         required: true
       pin:
         description: 'Set a 6-digit PIN'
@@ -12,24 +12,11 @@ on:
         default: '123456'
 
 jobs:
-  windows-safe:
+  windows-final:
     runs-on: windows-latest
     timeout-minutes: 360
     
     steps:
-      - name: 🛡️ Validate Input Code (Prevent Crash)
-        shell: powershell
-        run: |
-          $code = "${{ github.event.inputs.crd_code }}"
-          if ($code -match "DISPLAY=") {
-            Write-Error "❌ WRONG CODE DETECTED! You pasted the Linux code. Please use the Windows (CMD) code from Google."
-            exit 1
-          }
-          if (-not ($code -match "remoting_start_host.exe")) {
-            Write-Warning "⚠️ Code looks suspicious. Make sure you copied the Windows (CMD) command."
-          }
-          Write-Host "✅ Code looks valid. Proceeding..."
-
       - name: ⬇️ Download Chrome Remote Desktop
         run: |
           Invoke-WebRequest -Uri "https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi" -OutFile "chromeremotedesktophost.msi"
@@ -57,19 +44,8 @@ jobs:
       - name: 🚀 START GOOGLE REMOTE DESKTOP
         shell: cmd
         run: |
-          :: Run the code you pasted
+          :: We run the command exactly as you pasted it
           ${{ github.event.inputs.crd_code }} --pin=${{ github.event.inputs.pin }}
-
-      - name: 📡 Verify Connection
-        shell: powershell
-        run: |
-          # Check if the Google service is actually running
-          $service = Get-Service "chromoting" -ErrorAction SilentlyContinue
-          if ($service.Status -ne 'Running') {
-             Write-Error "❌ CRITICAL ERROR: The Remote Desktop Service failed to start. Your code might be expired. Generate a new code and try again."
-             exit 1
-          }
-          Write-Host "✅ SUCCESS! Server is online."
 
       - name: ⏳ Keep Alive (6 Hours)
         run: |
