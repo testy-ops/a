@@ -1,4 +1,4 @@
-name: Ubuntu 22.04 Desktop (Fixed)
+name: Chrome Remote Desktop (Fixed)
 
 on: 
   workflow_dispatch:
@@ -13,16 +13,15 @@ on:
 
 jobs:
   ubuntu-crd-fixed:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 360
     
     steps:
-      - name: Install Desktop (XFCE) & Game Deps
+      - name: Install Desktop (XFCE)
         run: |
           echo "Installing Desktop Environment..."
           sudo apt-get update
-          # added python3-pygame and pulseaudio for your game needs
-          sudo apt-get install -y xfce4 xfce4-goodies xbase-clients python3-psutil python3-pygame pulseaudio
+          sudo apt-get install -y xfce4 xfce4-goodies xbase-clients python3-psutil
 
       - name: Install Chrome Remote Desktop
         run: |
@@ -36,12 +35,6 @@ jobs:
           echo "Fixing dependencies..."
           # This command finishes the install and downloads missing parts
           sudo apt-get install --fix-broken -y
-
-      - name: Fix Audio Driver (Prevent Pygame Crash)
-        run: |
-          # This sets the dummy driver so your game doesn't crash on startup
-          echo "export SDL_AUDIODRIVER=dummy" >> ~/.bashrc
-          echo "export SDL_AUDIODRIVER=dummy" >> ~/.profile
 
       - name: Create Group (Error Prevention)
         run: |
@@ -75,7 +68,7 @@ jobs:
           echo "   SUCCESS! MACHINE IS LIVE"
           echo "==================================================="
           echo "1. Go to https://remotedesktop.google.com/access"
-          echo "2. Click on the new computer name"
+          echo "2. Click on 'ubuntu-latest' (or the new computer name)"
           echo "3. Enter PIN: ${{ github.event.inputs.pin }}"
           echo "==================================================="
           while true; do sleep 30; done
