@@ -1,0 +1,74 @@
+name: Tailscale RDP (XFCE)
+
+on: 
+  workflow_dispatch:
+    inputs:
+      ts_key:
+        description: 'Paste your Tailscale Auth Key (reusable or ephemeral)'
+        required: true
+      password:
+        description: 'Set a password for the "runner" user'
+        required: true
+        default: '123456'
+
+jobs:
+  tailscale-rdp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    
+    steps:
+      - name: Install Desktop (XFCE) & XRDP
+        run: |
+          echo "Installing Desktop Environment and RDP Server..."
+          sudo apt-get update
+          # Install XFCE, XRDP, and a browser (Firefox)
+          sudo apt-get install -y xfce4 xfce4-goodies xrdp firefox
+          
+          # Configure XRDP to use XFCE
+          echo "xfce4-session" > ~/.xsession
+          
+          # Fix common XRDP permissions issues
+          sudo adduser xrdp ssl-cert
+
+      - name: Install Tailscale
+        run: |
+          echo "Installing Tailscale..."
+          curl -fsSL https://tailscale.com/install.sh | sh
+
+      - name: Start Tailscale
+        env:
+          TS_KEY: ${{ github.event.inputs.ts_key }}
+        run: |
+          # Start Tailscale and advertise as a node named 'github-rdp'
+          sudo tailscale up --authkey=$TS_KEY --hostname=github-rdp --ssh
+
+      - name: Configure User Password
+        env:
+          RDP_PASS: ${{ github.event.inputs.password }}
+        run: |
+          # Set the password for the default 'runner' user
+          echo "runner:$RDP_PASS" | sudo chpasswd
+
+      - name: Start XRDP Service
+        run: |
+          sudo service xrdp start
+          echo "XRDP Service Started."
+
+      - name: Display Connection Info
+        run: |
+          echo "==================================================="
+          echo "           SUCCESS! MACHINE IS LIVE"
+          echo "==================================================="
+          echo "1. Your Tailscale IP is:"
+          tailscale ip -4
+          echo "---------------------------------------------------"
+          echo "2. Open 'Remote Desktop Connection' (Windows) or Remmina"
+          echo "3. Connect to the IP shown above."
+          echo "4. Username: runner"
+          echo "5. Password: ${{ github.event.inputs.password }}"
+          echo "==================================================="
+
+      - name: Keep Alive
+        run: |
+          # Loop to keep the runner active until timeout
+          while true; do sleep 30; done
