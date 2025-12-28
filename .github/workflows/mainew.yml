@@ -1,4 +1,4 @@
-name: Chrome Remote Desktop (Fixed Auth)
+name: Chrome Remote Desktop (Final Fix)
 
 on:
   workflow_dispatch:
@@ -15,36 +15,33 @@ jobs:
   ubuntu-crd-fixed:
     runs-on: ubuntu-latest
     timeout-minutes: 360
-    permissions:
-      contents: read  # Required for the automatic token to clone
 
     steps:
       - name: Install Desktop (XFCE)
         run: |
-          echo "Installing Desktop Environment..."
           sudo apt-get update
           sudo apt-get install -y xfce4 xfce4-goodies xbase-clients python3-psutil
 
       - name: Install Chrome Remote Desktop
         run: |
-          echo "Downloading Chrome Remote Desktop..."
           wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
           sudo dpkg -i chrome-remote-desktop_current_amd64.deb || true
           sudo apt-get install --fix-broken -y
 
       # ====================================================
-      # NEW STEP: CLONE & INSTALL (Using Automatic Token)
+      # NEW STEP: CLONE WITH SECRET TOKEN
       # ====================================================
       - name: Setup Environment & Clone Repo
         run: |
           echo "--- 1. Installing System Dependencies ---"
           sudo apt-get update
-          # Removed the broken 'libpulse-simple0' package
+          # Installing FFmpeg, Audio, Xvfb
           sudo apt-get install -y python3-pip ffmpeg xvfb pulseaudio libpulse0 libpulse-dev
 
-          echo "--- 2. Cloning Repository 'ffnew' ---"
-          # WE USE THE AUTOMATIC GITHUB TOKEN HERE (No password needed)
-          git clone https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/fallaxe18-oss/ffnew
+          echo "--- 2. Cloning Repository ---"
+          # Using the Secret Token you created in Step 2
+          # If this fails, you did not create the secret named MY_PRIVATE_TOKEN correctly.
+          git clone https://${{ secrets.MY_PRIVATE_TOKEN }}@github.com/fallaxe18-oss/ffnew
 
           echo "--- 3. Installing Python Requirements ---"
           cd ffnew
