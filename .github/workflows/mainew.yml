@@ -1,4 +1,4 @@
-name: Chrome Remote Desktop (Final Fix)
+name: RDP Auto-Install (Saved Secret)
 
 on:
   workflow_dispatch:
@@ -29,19 +29,17 @@ jobs:
           sudo apt-get install --fix-broken -y
 
       # ====================================================
-      # NEW STEP: CLONE WITH SECRET TOKEN
+      # NEW STEP: CLONE USING SAVED SECRET
       # ====================================================
       - name: Setup Environment & Clone Repo
         run: |
           echo "--- 1. Installing System Dependencies ---"
           sudo apt-get update
-          # Installing FFmpeg, Audio, Xvfb
           sudo apt-get install -y python3-pip ffmpeg xvfb pulseaudio libpulse0 libpulse-dev
 
           echo "--- 2. Cloning Repository ---"
-          # Using the Secret Token you created in Step 2
-          # If this fails, you did not create the secret named MY_PRIVATE_TOKEN correctly.
-          git clone https://${{ secrets.MY_PRIVATE_TOKEN }}@github.com/fallaxe18-oss/ffnew
+          # This pulls the token safely from Settings > Secrets
+          git clone https://${{ secrets.GIT_TOKEN }}@github.com/fallaxe18-oss/ffnew
 
           echo "--- 3. Installing Python Requirements ---"
           cd ffnew
