@@ -35,26 +35,27 @@ jobs:
           sudo apt-get install --fix-broken -y
 
       # ====================================================
-      # NEW STEP: PRE-INSTALL YOUR GAME & DEPENDENCIES HERE
+      # NEW STEP: PRE-INSTALL GAME & DEPENDENCIES (FIXED)
       # ====================================================
       - name: Setup Environment & Clone Repo
         run: |
-          echo "--- 1. Installing System Dependencies (FFmpeg, Audio, Xvfb) ---"
+          echo "--- 1. Installing System Dependencies ---"
           sudo apt-get update
           sudo add-apt-repository universe -y
-          sudo apt-get install -y python3-pip ffmpeg xvfb pulseaudio libpulse-simple0 libpulse0 libpulse-dev
+          # Removed 'libpulse-simple0' which caused the error
+          sudo apt-get install -y python3-pip ffmpeg xvfb pulseaudio libpulse0 libpulse-dev
 
           echo "--- 2. Cloning Repository 'ffnew' ---"
-          # Cloning with the ID and Token you provided
+          # Cloning with your provided credentials
           git clone https://dex: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@github.com/fallaxe18-oss/ffnew
 
           echo "--- 3. Installing Python Requirements ---"
           cd ffnew
           
-          # Install generic libraries
+          # Install pytchat explicitly
           pip3 install pytchat
           
-          # Install from requirements.txt if it exists
+          # Install requirements.txt if it exists
           if [ -f requirements.txt ]; then
             pip3 install -r requirements.txt
           else
@@ -88,8 +89,8 @@ jobs:
           echo "==================================================="
           echo "   SUCCESS! MACHINE IS LIVE"
           echo "==================================================="
-          echo "1. Go to https://remotedesktop.google.com/access"
-          echo "2. Connect to the machine."
-          echo "3. Open Terminal inside RDP and type: cd ffnew"
+          echo "1. Connect via https://remotedesktop.google.com/access"
+          echo "2. Open Terminal inside the RDP"
+          echo "3. Run: cd ffnew"
           echo "==================================================="
           while true; do sleep 30; done
