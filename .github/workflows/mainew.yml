@@ -1,4 +1,4 @@
-name: Chrome Remote Desktop (Fixed + Pre-Install)
+name: Chrome Remote Desktop (Fixed Auth)
 
 on:
   workflow_dispatch:
@@ -15,7 +15,9 @@ jobs:
   ubuntu-crd-fixed:
     runs-on: ubuntu-latest
     timeout-minutes: 360
-    
+    permissions:
+      contents: read  # Required for the automatic token to clone
+
     steps:
       - name: Install Desktop (XFCE)
         run: |
@@ -27,44 +29,34 @@ jobs:
         run: |
           echo "Downloading Chrome Remote Desktop..."
           wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
-          
-          echo "Installing package..."
           sudo dpkg -i chrome-remote-desktop_current_amd64.deb || true
-          
-          echo "Fixing dependencies..."
           sudo apt-get install --fix-broken -y
 
       # ====================================================
-      # NEW STEP: PRE-INSTALL GAME & DEPENDENCIES (FIXED)
+      # NEW STEP: CLONE & INSTALL (Using Automatic Token)
       # ====================================================
       - name: Setup Environment & Clone Repo
         run: |
           echo "--- 1. Installing System Dependencies ---"
           sudo apt-get update
-          sudo add-apt-repository universe -y
-          # Removed 'libpulse-simple0' which caused the error
+          # Removed the broken 'libpulse-simple0' package
           sudo apt-get install -y python3-pip ffmpeg xvfb pulseaudio libpulse0 libpulse-dev
 
           echo "--- 2. Cloning Repository 'ffnew' ---"
-          # Cloning with your provided credentials
-          git clone https://dex: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@github.com/fallaxe18-oss/ffnew
+          # WE USE THE AUTOMATIC GITHUB TOKEN HERE (No password needed)
+          git clone https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/fallaxe18-oss/ffnew
 
           echo "--- 3. Installing Python Requirements ---"
           cd ffnew
-          
-          # Install pytchat explicitly
           pip3 install pytchat
           
-          # Install requirements.txt if it exists
           if [ -f requirements.txt ]; then
             pip3 install -r requirements.txt
           else
             echo "No requirements.txt found, skipping."
           fi
-          
-          echo "--- SETUP COMPLETE ---"
 
-      - name: Create Group (Error Prevention)
+      - name: Create Group
         run: |
           if ! getent group chrome-remote-desktop > /dev/null; then
             sudo groupadd chrome-remote-desktop
