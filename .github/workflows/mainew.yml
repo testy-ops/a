@@ -1,22 +1,32 @@
-name: RDP Auto-Install (Saved Secret)
+name: Chrome Remote Desktop (Final)
 
 on:
   workflow_dispatch:
     inputs:
       crd_code:
-        description: 'Paste the NEW Debian Command from Google Here'
+        description: 'Paste Debian Command'
         required: true
       pin:
-        description: 'Set a 6-digit PIN'
+        description: 'Set PIN'
         required: true
         default: '123456'
 
 jobs:
-  ubuntu-crd-fixed:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
     steps:
+      - name: Check Token Before Starting
+        run: |
+          if [ -z "${{ secrets.GIT_TOKEN }}" ]; then
+            echo "❌ ERROR: You did not add the secret 'GIT_TOKEN' in Settings!"
+            echo "The cloned setup will fail. Please add it and try again."
+            exit 1
+          else
+            echo "✅ SUCCESS: Secret 'GIT_TOKEN' found. Proceeding..."
+          fi
+
       - name: Install Desktop (XFCE)
         run: |
           sudo apt-get update
@@ -28,37 +38,31 @@ jobs:
           sudo dpkg -i chrome-remote-desktop_current_amd64.deb || true
           sudo apt-get install --fix-broken -y
 
-      # ====================================================
-      # NEW STEP: CLONE USING SAVED SECRET
-      # ====================================================
-      - name: Setup Environment & Clone Repo
+      - name: Setup Game Environment
         run: |
-          echo "--- 1. Installing System Dependencies ---"
+          echo "--- Installing Dependencies ---"
           sudo apt-get update
           sudo apt-get install -y python3-pip ffmpeg xvfb pulseaudio libpulse0 libpulse-dev
 
-          echo "--- 2. Cloning Repository ---"
-          # This pulls the token safely from Settings > Secrets
+          echo "--- Cloning Repository ---"
+          # This uses the secret named GIT_TOKEN
           git clone https://${{ secrets.GIT_TOKEN }}@github.com/fallaxe18-oss/ffnew
 
-          echo "--- 3. Installing Python Requirements ---"
+          echo "--- Installing Python Requirements ---"
           cd ffnew
           pip3 install pytchat
-          
           if [ -f requirements.txt ]; then
             pip3 install -r requirements.txt
-          else
-            echo "No requirements.txt found, skipping."
           fi
 
-      - name: Create Group
+      - name: Create User Group
         run: |
           if ! getent group chrome-remote-desktop > /dev/null; then
             sudo groupadd chrome-remote-desktop
           fi
           sudo usermod -aG chrome-remote-desktop $USER
 
-      - name: Configure Desktop Session
+      - name: Configure Session
         run: |
           echo "exec /usr/bin/xfce4-session" > ~/.chrome-remote-desktop-session
           sudo systemctl stop lightdm || true
@@ -73,11 +77,5 @@ jobs:
 
       - name: Keep Alive
         run: |
-          echo "==================================================="
-          echo "   SUCCESS! MACHINE IS LIVE"
-          echo "==================================================="
-          echo "1. Connect via https://remotedesktop.google.com/access"
-          echo "2. Open Terminal inside the RDP"
-          echo "3. Run: cd ffnew"
-          echo "==================================================="
+          echo "✅ MACHINE IS LIVE. Connect now."
           while true; do sleep 30; done
